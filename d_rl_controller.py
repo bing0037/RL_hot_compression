@@ -256,7 +256,7 @@ class Controller(object):
         total_rewards = 0
         child_network = np.array([[0] * self.num_para], dtype=np.int64)
         model_replica = copy.deepcopy(self.model)
-        timing_constraint = 115
+        timing_constraint = 94
         spartio = sparsity_ratio(self.model,print_enable=True)
 
 
