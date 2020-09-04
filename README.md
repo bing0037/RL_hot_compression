@@ -1,5 +1,9 @@
 # RL_hot_compression
 
+## Ours
+modify d_rl_controller.py
+
+
 ##1. experiment 1 
     modify d_rl_input.py
     **ours = True
