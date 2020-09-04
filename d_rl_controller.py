@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 import sys
 
+from b_pattern_pruning_CPU import build_whole_pattern
 from c_precompression_extract_joint_training import train_prune
 from d_rl_input import controller_params, pruning_number_list, block_size
 import termplotlib as tpl
@@ -16,8 +17,9 @@ import time
 import torch
 import os
 
+from e_runs_number_reward import times_reward
+from e_sparsity_ratio import whole_sparsity_ratio, sparsity_ratio
 from f_transformer_model import TransformerModel,PositionalEncoding
-from e_compute_multiply_time_blocksize_CPU import frequency_time, pruning_number_time_dict,frequency_list, usage_time_level, normalization
 
 from d_rl_input import prune_ratios
 
@@ -221,33 +223,30 @@ class Controller(object):
             for name in every_layer_dict:
                 pruning_rate_dict[name] = every_layer_dict[name][tag*4:(tag+1)*4]
             mask_dict_set.append(pruning_rate_dict)
+
+        every_mask_whole_pattern = []
+        for dict in mask_dict_set:
+            whole_weight_pattern = build_whole_pattern(model, dict, block_size, device='cuda')
+            every_mask_whole_pattern.append(whole_weight_pattern)
+
+        before_sparsity_ratio = whole_sparsity_ratio(model, mask_dict_set, every_mask_whole_pattern, device='cuda')
+
         #compute every latency
-        three_latency = []
-        three_usage_times = []
-        for j in range(len(level_para)):
-            latency = frequency_time(level_para[j],frequency_list[j],pruning_number_time_dict)
-            three_latency.append(latency)
-            times = usage_time_level[j] / latency
-            three_usage_times.append(times)
-        norm_times = normalization(three_usage_times)
-        times_reward = sum(norm_times)
-
-        weighted_accuracy,three_sub_accuracy = train_prune(mask_dict_set,block_size,model,epochs)
-
+        three_latency,runs_reward = times_reward(before_sparsity_ratio)
         for sub_latency in three_latency:
             if sub_latency > timing_constraint:
-                reward = -1
-                return weighted_accuracy, times_reward,reward,mask_dict_set,level_para
-        for accuracy in three_sub_accuracy:
-            if accuracy < 0.4:
-                reward = -1
-                return weighted_accuracy,times_reward,reward,mask_dict_set,level_para
+                accuracy_reward = -1
+                reward = accuracy_reward + runs_reward
+                return accuracy_reward, runs_reward,reward,mask_dict_set,level_para
+        weighted_accuracy, three_sub_accuracy = train_prune(mask_dict_set, model, epochs,every_mask_whole_pattern)
+
+        accuracy_reward = (weighted_accuracy - 0.85) / (0.9745 - 0.85)
         if three_sub_accuracy[0] > three_sub_accuracy[1] > three_sub_accuracy[2]:
-            reward = weighted_accuracy + times_reward
-            return weighted_accuracy, times_reward, reward,mask_dict_set,level_para
+            reward = accuracy_reward + runs_reward
+            return accuracy_reward, runs_reward, reward,mask_dict_set,level_para
         else:
-            reward = 0 + times_reward
-            return weighted_accuracy, times_reward,reward,mask_dict_set,level_para
+            reward = accuracy_reward + runs_reward - 0.5
+            return accuracy_reward, runs_reward,reward,mask_dict_set,level_para
 
 
     def global_train(self):
@@ -257,6 +256,8 @@ class Controller(object):
         total_rewards = 0
         child_network = np.array([[0] * self.num_para], dtype=np.int64)
         model_replica = copy.deepcopy(self.model)
+        timing_constraint = 115
+        spartio = sparsity_ratio(self.model,print_enable=True)
 
 
         for episode in range(controller_params['max_episodes']):
@@ -267,7 +268,6 @@ class Controller(object):
             step += 1
             episode_reward_buffer = []
             arachitecture_batch = []
-            timing_constraint = int(pruning_number_time_dict[1]) + 1
 
             if episode % 50 == 0 and episode != 0:
                 print("************Process:**********", str(float(episode) / controller_params['max_episodes'] * 100) + "%")
@@ -297,33 +297,33 @@ class Controller(object):
 
 
                 if str_NNs in self.explored_info.keys():
-                    accuracy = self.explored_info[str_NNs][0]
-                    times_reward = self.explored_info[str_NNs][1]
+                    accuracy_reward = self.explored_info[str_NNs][0]
+                    runs_reward = self.explored_info[str_NNs][1]
                     reward = self.explored_info[str_NNs][2]
                     mask_dict_set = self.explored_info[str_NNs][3]
                     level_para = self.explored_info[str_NNs][4]
                 else:
-                    accuracy,times_reward,reward,mask_dict_set,level_para = self.para2interface_NN(Para_NN1,Para_level,self.model,self.epochs,timing_constraint)
+                    accuracy_reward,runs_reward,reward,mask_dict_set,level_para = self.para2interface_NN(Para_NN1,Para_level,self.model,self.epochs,timing_constraint)
                     self.explored_info[str_NNs] = {}
-                    self.explored_info[str_NNs][0] = accuracy
-                    self.explored_info[str_NNs][1] = times_reward
+                    self.explored_info[str_NNs][0] = accuracy_reward
+                    self.explored_info[str_NNs][1] = runs_reward
                     self.explored_info[str_NNs][2] = reward
                     self.explored_info[str_NNs][3] = mask_dict_set
                     self.explored_info[str_NNs][4] = level_para
 
 
                 # logger.info("====================Results=======================")
-                # logger.info("--------->Accuracy: {},time reward:{}".format(accuracy, times_reward))
+                # logger.info("--------->Accuracy: {},time reward:{}".format(accuracy, runs_reward))
                 # logger.info("--------->Reward: {}".format(reward))
                 # logger.info("=" * 90)
-                torch.set_printoptions(threshold=15000)
-                if episode == controller_params['max_episodes']-1:
-                    print('--------->mask_dict_set:{}'.format(mask_dict_set))
                 print("====================Results=======================")
-                print('--------->Episode: {},energy_level:{}'.format(episode,level_para))
-                print("--------->Accuracy: {},time reward:{}".format(accuracy, times_reward))
+                print('--------->Episode: {},sparsity_level:{}'.format(episode,level_para))
+                print("--------->Accuracy reward: {},time reward:{}".format(accuracy_reward, runs_reward))
                 print("--------->Reward: {}".format(reward))
                 print("=" * 90)
+                torch.set_printoptions(threshold=15000)
+                if episode == controller_params['max_episodes'] - 1:
+                    print('--------->mask_dict_set:{}'.format(mask_dict_set))
 
 
                 for name, weight in assign_model.named_parameters():

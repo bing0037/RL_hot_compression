@@ -151,7 +151,7 @@ def epoch_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,
 
 
 #compute weighted accuracy after fine-tune training in test_data
-def eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,bptt,data_source,TEXT,criterion,after):
+def eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,bptt,data_source,TEXT,criterion):
     weighted_accuracy = torch.tensor(0,dtype=torch.float).to(device)
     level_accuracy = []
     for mask_j in range(len(mask_dict_set)):
@@ -159,14 +159,10 @@ def eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,b
         # cpoy a submodel to evaluate
         sub_model = copy.deepcopy(model)
         changed_pattern_pruning(sub_model,whole_weight_pattern,device)
-        if after:
-            sparsity_ratio(sub_model)
         sub_loss,sub_accuracy = evaluate(bptt,sub_model,data_source,TEXT,criterion)
         level_accuracy.append(sub_accuracy.cpu().numpy())#store sub accuracy
         print('| test_data evaluate | sub loss {:5.2f} | sub accuracy {:8.4f}'.format(
                                                             sub_loss, sub_accuracy))
-        if after:
-            print('-' * 89)
         if mask_j == 0:
             sub_accuracy *= 0.5
         if mask_j == 1:
@@ -178,7 +174,7 @@ def eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,b
     return weighted_accuracy,level_accuracy
 
 
-def train_prune(mask_dict_set,block_size,model,epochs):
+def train_prune(mask_dict_set,model,epochs,every_mask_whole_pattern):
     best_accuracy= float(0)
     best_model = None
 
@@ -190,18 +186,13 @@ def train_prune(mask_dict_set,block_size,model,epochs):
 
     original_whole_pattern = extract_original_layers_whole_pattern(model,device)
 
-    every_mask_whole_pattern = []
-    for dict in mask_dict_set:
-        whole_weight_pattern = build_whole_pattern(model,dict,block_size,device)
-        every_mask_whole_pattern.append(whole_weight_pattern)
-
     print('-' * 89)
     original_loss,original_accuracy = evaluate(bptt,model,test_data,TEXT,criterion)
     print('| original model evaluate | loss {:5.2f} | accuracy {:8.4f}'.format(
         original_loss, original_accuracy))
 
     print('-' * 89)
-    test_accuracy,three_sub_accuracy = eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,bptt,test_data,TEXT,criterion,after=False)
+    test_accuracy,three_sub_accuracy = eval_weighted_accuracy(model,mask_dict_set,every_mask_whole_pattern,device,bptt,test_data,TEXT,criterion)
     print('| test before training | weighted_accuracy {:8.4f}'.format(test_accuracy))
 
     for epoch in range(1, epochs + 1):
@@ -217,11 +208,9 @@ def train_prune(mask_dict_set,block_size,model,epochs):
             best_model = model
 
         scheduler.step()
-    sparsity_ratio(best_model)
     print('-' * 89)
-    reward_weighted_accuracy,reward_sub_accuracy = eval_weighted_accuracy(best_model,mask_dict_set,every_mask_whole_pattern,device,bptt,test_data,TEXT,criterion,after=True)
+    reward_weighted_accuracy,reward_sub_accuracy = eval_weighted_accuracy(best_model,mask_dict_set,every_mask_whole_pattern,device,bptt,test_data,TEXT,criterion)
     print('| end of training | weighted_accuracy {:8.4f}'.format(reward_weighted_accuracy))
     print('-' * 89)
-
 
     return reward_weighted_accuracy,reward_sub_accuracy

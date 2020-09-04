@@ -184,7 +184,6 @@ def main(args):
         model.load_state_dict(torch.load('./model/transformer_model_lr_3.0_50.pt'))
         train_prune(args,model, original_whole_pattern)
 
-
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Random Column pruning')
