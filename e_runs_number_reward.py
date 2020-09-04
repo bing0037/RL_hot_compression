@@ -88,7 +88,7 @@ def compute_runs_number(usage_time_level,latency_list):
 
 def normalization(number):
     min = 2300000
-    max = 4300000
+    max = 4500000
     k= 1.0 / (max - min)
     norY = 0 + k * (number - min)
     return norY
