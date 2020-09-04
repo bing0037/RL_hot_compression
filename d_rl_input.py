@@ -53,5 +53,6 @@ controller_params = {
     "num_children_per_episode": 1,
     'hidden_units': 35,
     'max_episodes': 300,
-    'epochs':1
+    'epochs':1,
+    "timing_constraint":115#115 for high, 104 for middle,94 for low
 }

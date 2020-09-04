@@ -50,6 +50,7 @@ class Controller(object):
         self.model = controller_params['model']
         self.epochs = controller_params['epochs']
         self.hidden_units = controller_params['hidden_units']
+        self.timing_constraint = controller_params['timing_constraint']
 
         self.nn1_search_space = controller_params['sw_space']
         self.level_search_space = controller_params['level_space']
@@ -256,7 +257,6 @@ class Controller(object):
         total_rewards = 0
         child_network = np.array([[0] * self.num_para], dtype=np.int64)
         model_replica = copy.deepcopy(self.model)
-        timing_constraint = 94
         spartio = sparsity_ratio(self.model,print_enable=True)
 
 
@@ -303,7 +303,7 @@ class Controller(object):
                     mask_dict_set = self.explored_info[str_NNs][3]
                     level_para = self.explored_info[str_NNs][4]
                 else:
-                    accuracy_reward,runs_reward,reward,mask_dict_set,level_para = self.para2interface_NN(Para_NN1,Para_level,self.model,self.epochs,timing_constraint)
+                    accuracy_reward,runs_reward,reward,mask_dict_set,level_para = self.para2interface_NN(Para_NN1,Para_level,self.model,self.epochs,self.timing_constraint)
                     self.explored_info[str_NNs] = {}
                     self.explored_info[str_NNs][0] = accuracy_reward
                     self.explored_info[str_NNs][1] = runs_reward
