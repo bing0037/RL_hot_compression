@@ -13,7 +13,7 @@ import numpy as np
 
 from a_random_generate_column_whole_pattern import random_generate_column_whole_pattern
 from e_heatmap import plot_heatmap
-from e_load_onfig_file import load_config_file
+from e_load_config_file import load_config_file
 from e_sparsity_ratio import sparsity_ratio
 from f_transformer_model import TransformerModel
 
@@ -149,7 +149,6 @@ def train_prune(args,model,column_pattern_dict):
             best_model = model
 
         scheduler.step()
-    sparsity_ratio(best_model)
     print('-' * 89)
     reward_loss, reward_accuracy = evaluate(bptt, model, test_data, TEXT, criterion)
     print('| end of training | loss {:5.2f} | accuracy {:8.4f}'.format(reward_loss, reward_accuracy))
@@ -172,17 +171,7 @@ def main(args):
         model.load_state_dict(torch.load('./model/transformer_model_lr_3.0_50.pt'))
         column_whole_pattern_dict = random_generate_column_whole_pattern(model,prune_ratios,args.block_size)
         train_prune(args,model,column_whole_pattern_dict)
-    else:#fine-tune precompression model
-        print('#' * 89)
-        print('A.only column pruning from 50epochs model')
-        print('B.extract original whole pattern from bingbing model(10epochs)')
-        print('C.fine-tune {} epochs'.format(args.epochs))
-        print('#' * 89)
-        # model.load_state_dict(torch.load('./model/transformer_retrained_acc_0.913_block_column_penalty_transformer_v229_0.0001_0.0001_prune_ratio_v6.pt'))
-        model.load_state_dict(torch.load('./model/transformer_retrained_acc_0.930_block_filter_penalty_transformer_v229_0.0001_0.0001_prune_ratio_v6.pt'))
-        original_whole_pattern = extract_original_layers_whole_pattern(model,device)
-        model.load_state_dict(torch.load('./model/transformer_model_lr_3.0_50.pt'))
-        train_prune(args,model, original_whole_pattern)
+
 
 def parse_args():
     import argparse

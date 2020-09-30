@@ -1,6 +1,6 @@
 import torch
 from d_generate_rl_input import random_generate_rl_input, extract_generate_rl_input
-from e_load_onfig_file import load_config_file
+from e_load_config_file import load_config_file
 from c_precompression_extract_joint_training import model
 
 
@@ -18,7 +18,7 @@ if ours:#True
 
     config_file = './config_file/prune_ratio_v6.yaml'
     prune_ratios = load_config_file(config_file)
-    model.load_state_dict(torch.load('./model/random_column_pruning_bingbing_pattern.pt'))
+    model.load_state_dict(torch.load('./model/transformer_hot_start_model.pt'))
     para_set = extract_generate_rl_input(model,block_size,prune_ratios,pruning_number_list)
 
 else:
@@ -31,7 +31,7 @@ else:
 
         config_file = './config_file/prune_ratio_v6.yaml'
         prune_ratios = load_config_file(config_file)
-        model.load_state_dict(torch.load('./model/random_column_pruning_bingbing_pattern.pt'))
+        model.load_state_dict(torch.load('./model/transformer_hot_start_model.pt'))
         para_set = random_generate_rl_input(prune_ratios,pruning_number_list,block_size)
     else:#False False
         print('#' * 89)
@@ -42,7 +42,7 @@ else:
 
         config_file = './config_file/prune_ratio_v1.yaml'
         prune_ratios = load_config_file(config_file)
-        model.load_state_dict(torch.load('./model/random_column_pruning_average.pt'))
+        model.load_state_dict(torch.load('./model/transformer_cold_start_model.pt'))
         para_set = extract_generate_rl_input(model,block_size,prune_ratios,pruning_number_list)
 
 

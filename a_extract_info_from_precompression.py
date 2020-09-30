@@ -68,7 +68,7 @@ def generate_layer_pattern(importance_weight_dict,block_size,pruning_number_list
             pruning_rate_pattern_list = []
             for tuple in max_p_weight_list:
                 sequence_matrix = tuple[1].view(-1)
-                sort, idx = torch.sort(sequence_matrix,descending=True)
+                sort, idx = torch.sort(sequence_matrix)
                 pattern = torch.ones(block_size, block_size,dtype=torch.int)
                 importance_matrix = idx[0:pruning_number]
                 for location in importance_matrix:
